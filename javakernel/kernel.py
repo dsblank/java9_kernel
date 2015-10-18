@@ -14,6 +14,10 @@ import re
 from pexpect import replwrap, EOF
 
 
+class JavaExpression(str):
+    def __repr__(self):
+        return str.__repr__(self)[1:-1]
+
 class JavaKernel(Kernel):
     implementation = 'java_kernel'
     implementation_version = 0.1
@@ -112,7 +116,11 @@ class JavaKernel(Kernel):
             return None
 
         interrupted, output = self._execute_java(code)
-        exitcode = "|  Error:" in output
+        exitcode = False
+        for expr in [".*\|  Error:", ".*\|  [^\n]* thrown:"]:
+            if re.match(expr, output, re.MULTILINE | re.DOTALL):
+                exitcode = True
+                break
 
         # Look for a return value:
         retval = None
@@ -125,7 +133,7 @@ class JavaKernel(Kernel):
                     # Turn string into a Python value:
                     retval = eval(sretval)
                 except:
-                    retval = sretval
+                    retval = JavaExpression(sretval.strip())
                 break
 
         if not silent:
